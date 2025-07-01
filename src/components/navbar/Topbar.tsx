@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dropdown, DropdownItem } from "../ui/Dropdown";
+import { LoadingSpinner, LoadingSpinnerWithText } from "../ui/LoadingSpinner";
 import {
   HiPlus,
   HiChevronDown,
@@ -73,7 +74,18 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
   error,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  // Auto-focus search input when dropdown opens
+  React.useEffect(() => {
+    if (isDropdownOpen && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+    }
+  }, [isDropdownOpen]);
 
   // Filter assistants based on search term
   const filteredAssistants = useMemo(() => {
@@ -89,94 +101,128 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
   }, [searchTerm, assistants]);
 
   return (
-    <Dropdown
-      align="right"
-      showSearch={false}
-      maxHeight="none"
-      trigger={
-        <button className="flex items-center gap-2 px-3 py-2 text-white hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 transition-colors cursor-pointer">
-          <HiCpuChip size={16} />
-          <span className="text-sm">
-            {isLoading
-              ? "Loading..."
-              : selectedAssistant?.name || "No Assistant"}
-          </span>
-          <HiChevronDown size={16} />
-        </button>
-      }
+    <div
+      onMouseEnter={() => setIsDropdownOpen(true)}
+      onMouseLeave={() => setIsDropdownOpen(false)}
     >
-      {/* Fixed header: View All button and Search input */}
-      <div className="border-b border-gray-200 dark:border-gray-700">
-        {/* View All button */}
-        <div className="p-3 pb-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push("/assistants");
-            }}
-            className="w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors border border-gray-300 dark:border-gray-600"
-          >
-            View All Assistants ({assistants.length})
-          </button>
-        </div>
-
-        {/* Search input */}
-        <div className="px-3 pb-3">
-          <input
-            type="text"
-            placeholder="Search assistants..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-            onClick={(e) => e.stopPropagation()}
+      {isLoading ? (
+        // Show only loading spinner when loading - no dropdown styling
+        <div className="flex items-center gap-2 px-3 py-2">
+          <LoadingSpinnerWithText
+            text="Loading assistants..."
+            size="sm"
+            color="white"
+            className="text-white"
           />
         </div>
-      </div>
-
-      {/* Scrollable assistant list section only */}
-      <div className="overflow-y-auto max-h-80 dropdown-scroll">
-        {error ? (
-          <div className="px-4 py-3 text-sm text-red-500 dark:text-red-400 text-center">
-            Error loading assistants
-          </div>
-        ) : isLoading ? (
-          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
-            Loading assistants...
-          </div>
-        ) : filteredAssistants.length > 0 ? (
-          filteredAssistants.map((assistant) => (
-            <DropdownItem
-              key={assistant.id}
-              onClick={() => onAssistantChange(assistant)}
-              className="px-4 py-3"
+      ) : (
+        // Show dropdown when not loading
+        <Dropdown
+          align="right"
+          showSearch={false}
+          maxHeight="none"
+          trigger={
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-2 text-white hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 transition-colors cursor-pointer"
             >
-              <div className="flex items-center justify-between w-full">
-                <div className="flex flex-col items-start">
-                  <span className="text-sm font-medium">{assistant.name}</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {assistant.instructions.length > 60
-                      ? `${assistant.instructions.substring(0, 60)}...`
-                      : assistant.instructions}
-                  </span>
-                </div>
-                {selectedAssistant?.id === assistant.id && (
-                  <HiCheck
-                    size={16}
-                    className="text-black bg-white flex-shrink-0 ml-2 rounded-full p-1"
-                  />
-                )}
+              <HiCpuChip size={16} />
+              <span className="text-sm">
+                {selectedAssistant?.name || "No Assistant"}
+              </span>
+              <HiChevronDown size={16} />
+            </button>
+          }
+        >
+          {/* Fixed header: View All button and Search input */}
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            {/* View All button or Loading spinner */}
+            {isLoading ? (
+              <div className="p-3 pb-2 flex justify-center">
+                <LoadingSpinnerWithText
+                  text="Loading assistants..."
+                  size="sm"
+                  color="gray"
+                  className="justify-center"
+                />
               </div>
-            </DropdownItem>
-          ))
-        ) : (
-          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
-            {assistants.length === 0
-              ? "No assistants available"
-              : "No assistants found"}
+            ) : (
+              <div className="p-3 pb-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push("/assistants");
+                  }}
+                  className="w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors border border-gray-300 dark:border-gray-600 cursor-pointer"
+                >
+                  View All Assistants ({assistants.length})
+                </button>
+              </div>
+            )}
+
+            {/* Search input - only show when not loading */}
+            {!isLoading && (
+              <div className="px-3 pb-3">
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search assistants..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all duration-200"
+                  onClick={(e) => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </Dropdown>
+
+          {/* Scrollable assistant list section only */}
+          {!isLoading && (
+            <div className="overflow-y-auto max-h-80 dropdown-scroll">
+              {error ? (
+                <div className="px-4 py-3 text-sm text-red-500 dark:text-red-400 text-center">
+                  Error loading assistants
+                </div>
+              ) : filteredAssistants.length > 0 ? (
+                filteredAssistants.map((assistant) => (
+                  <DropdownItem
+                    key={assistant.id}
+                    onClick={() => onAssistantChange(assistant)}
+                    className="px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-medium">
+                          {assistant.name}
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {assistant.instructions.length > 60
+                            ? `${assistant.instructions.substring(0, 60)}...`
+                            : assistant.instructions}
+                        </span>
+                      </div>
+                      {selectedAssistant?.id === assistant.id && (
+                        <HiCheck
+                          size={16}
+                          className="text-black bg-white flex-shrink-0 ml-2 rounded-full p-1"
+                        />
+                      )}
+                    </div>
+                  </DropdownItem>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+                  {assistants.length === 0
+                    ? "No assistants available"
+                    : "No assistants found"}
+                </div>
+              )}
+            </div>
+          )}
+        </Dropdown>
+      )}
+    </div>
   );
 };
 
@@ -322,7 +368,7 @@ export const Topbar: React.FC = () => {
       {/* Privacy dropdown */}
       <Dropdown
         trigger={
-          <button className="flex items-center gap-2 px-3 py-2 text-white hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 transition-colors cursor-pointer">
+          <button className="flex items-center gap-2 px-3 py-2 text-white hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-500 dark:hover:border-gray-500 rounded-lg border border-gray-300 dark:border-gray-600 transition-all duration-200 cursor-pointer">
             <HiLockClosed size={16} />
             <span className="text-sm">{selectedPrivacy.name}</span>
             <HiChevronDown size={16} />
