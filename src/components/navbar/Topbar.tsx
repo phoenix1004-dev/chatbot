@@ -121,7 +121,7 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
       ) : // Show dropdown when not loading
       disabled ? (
         // Show non-interactive display when disabled
-        <div className="flex items-center gap-2 px-3 py-2 text-white rounded-lg border border-gray-300 dark:border-gray-600 opacity-75">
+        <div className="flex items-center gap-2 px-3 py-2 text-white rounded-lg border border-gray-300 dark:border-gray-600 opacity-75 cursor-not-allowed">
           <HiCpuChip size={16} />
           <span className="text-sm">
             {selectedAssistant?.name || "No Assistant"}
