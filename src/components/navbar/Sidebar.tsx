@@ -22,6 +22,9 @@ export const Sidebar: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
 
   // Fetch chats function
@@ -94,6 +97,7 @@ export const Sidebar: React.FC = () => {
   );
 
   const handleStartRename = (chatId: string, title: string) => {
+    console.log("handleStartRename called with:", chatId, title);
     setRenamingChatId(chatId);
     setNewTitle(title);
   };
@@ -126,30 +130,46 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const handleDeleteChat = async (chatId: string) => {
-    if (window.confirm("Are you sure you want to delete this chat?")) {
-      try {
-        const response = await fetch(`/api/chats/${chatId}`, {
-          method: "DELETE",
-        });
+  const handleDeleteClick = (chatId: string) => {
+    console.log("handleDeleteClick called with:", chatId);
+    setDeletingChatId(chatId);
+    setShowDeleteConfirm(true);
+  };
 
-        if (!response.ok) {
-          throw new Error("Failed to delete chat");
-        }
+  const handleDeleteConfirm = async () => {
+    if (!deletingChatId) return;
 
-        // If the deleted chat was the current one, navigate away
-        if (currentChat?.id === chatId) {
-          setCurrentChat(null);
-          router.push("/");
-        }
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/chats/${deletingChatId}`, {
+        method: "DELETE",
+      });
 
-        // Refresh the chat list
-        fetchChats();
-      } catch (error) {
-        console.error("Error deleting chat:", error);
-        alert("Failed to delete chat.");
+      if (!response.ok) {
+        throw new Error("Failed to delete chat");
       }
+
+      // If the deleted chat was the current one, navigate away
+      if (currentChat?.id === deletingChatId) {
+        setCurrentChat(null);
+        router.push("/");
+      }
+
+      // Refresh the chat list
+      fetchChats();
+      setShowDeleteConfirm(false);
+      setDeletingChatId(null);
+    } catch (error) {
+      console.error("Error deleting chat:", error);
+      alert("Failed to delete chat.");
+    } finally {
+      setIsDeleting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingChatId(null);
   };
 
   return (
@@ -227,7 +247,7 @@ export const Sidebar: React.FC = () => {
                                 setRenamingChatId(null);
                               }
                             }}
-                            className="text-white text-sm bg-transparent border-b border-gray-500 focus:outline-none flex-1"
+                            className="text-white text-sm bg-gray-800 border border-gray-600 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 flex-1"
                             autoFocus
                           />
                         ) : (
@@ -252,9 +272,12 @@ export const Sidebar: React.FC = () => {
                             }
                           >
                             <DropdownItem
-                              onClick={() =>
-                                handleStartRename(chat.id, chat.title)
-                              }
+                              onClick={() => {
+                                console.log(
+                                  "Rename DropdownItem onClick triggered"
+                                );
+                                handleStartRename(chat.id, chat.title);
+                              }}
                             >
                               <div className="flex items-center space-x-2">
                                 <HiPencil size={16} />
@@ -262,7 +285,12 @@ export const Sidebar: React.FC = () => {
                               </div>
                             </DropdownItem>
                             <DropdownItem
-                              onClick={() => handleDeleteChat(chat.id)}
+                              onClick={() => {
+                                console.log(
+                                  "Delete DropdownItem onClick triggered"
+                                );
+                                handleDeleteClick(chat.id);
+                              }}
                             >
                               <div className="flex items-center space-x-2 text-red-500">
                                 <HiTrash size={16} />
@@ -288,6 +316,37 @@ export const Sidebar: React.FC = () => {
             )}
           </div>
         </>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && deletingChatId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 border border-gray-600 rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Delete Chat
+            </h3>
+            <p className="text-gray-300 mb-6">
+              Are you sure you want to delete this chat? This action cannot be
+              undone.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+              <button
+                onClick={handleDeleteCancel}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-gray-700 text-gray-300 rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
