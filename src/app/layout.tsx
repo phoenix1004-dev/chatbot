@@ -1,9 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Topbar } from "@/components/navbar/Topbar";
-import { Sidebar } from "@/components/navbar/Sidebar";
-import { SidebarProvider } from "@/contexts/SidebarContext";
-
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,17 +30,7 @@ export default function RootLayout({
         data-new-gr-c-s-check-loaded="14.1242.0"
         data-gr-ext-installed=""
       >
-        <SidebarProvider>
-          <div className="flex h-screen bg-[#0a0a0a]">
-            <Sidebar />
-            <div className="flex-1 flex flex-col min-w-0">
-              <Topbar />
-              <main className="flex-1 overflow-auto bg-[#0a0a0a]">
-                {children}
-              </main>
-            </div>
-          </div>
-        </SidebarProvider>
+        {children}
       </body>
     </html>
   );

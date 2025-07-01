@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { HiCpuChip, HiCheck, HiMagnifyingGlass } from "react-icons/hi2";
+import { useRouter } from "next/navigation";
+import {
+  HiCpuChip,
+  HiCheck,
+  HiMagnifyingGlass,
+  HiArrowLeft,
+} from "react-icons/hi2";
 
 interface AssistantType {
   id: string;
@@ -17,7 +23,12 @@ const assistantTypes: AssistantType[] = [
     name: "General Assistant",
     description: "All-purpose AI assistant for various tasks",
     category: "General",
-    features: ["Question answering", "General conversation", "Task assistance", "Information lookup"],
+    features: [
+      "Question answering",
+      "General conversation",
+      "Task assistance",
+      "Information lookup",
+    ],
   },
   {
     id: "code",
@@ -31,65 +42,111 @@ const assistantTypes: AssistantType[] = [
     name: "Creative Assistant",
     description: "Focused on creative writing and content",
     category: "Creative",
-    features: ["Creative writing", "Content creation", "Storytelling", "Brainstorming"],
+    features: [
+      "Creative writing",
+      "Content creation",
+      "Storytelling",
+      "Brainstorming",
+    ],
   },
   {
     id: "research",
     name: "Research Assistant",
     description: "Optimized for research and analysis",
     category: "Research",
-    features: ["Data analysis", "Research synthesis", "Citation help", "Academic writing"],
+    features: [
+      "Data analysis",
+      "Research synthesis",
+      "Citation help",
+      "Academic writing",
+    ],
   },
   {
     id: "data",
     name: "Data Analyst",
     description: "Expert in data analysis and visualization",
     category: "Analytics",
-    features: ["Data visualization", "Statistical analysis", "Report generation", "Trend analysis"],
+    features: [
+      "Data visualization",
+      "Statistical analysis",
+      "Report generation",
+      "Trend analysis",
+    ],
   },
   {
     id: "marketing",
     name: "Marketing Assistant",
     description: "Specialized in marketing strategies and campaigns",
     category: "Business",
-    features: ["Campaign planning", "Content marketing", "SEO optimization", "Social media strategy"],
+    features: [
+      "Campaign planning",
+      "Content marketing",
+      "SEO optimization",
+      "Social media strategy",
+    ],
   },
   {
     id: "legal",
     name: "Legal Assistant",
     description: "Knowledgeable in legal research and documentation",
     category: "Legal",
-    features: ["Legal research", "Document drafting", "Case analysis", "Compliance guidance"],
+    features: [
+      "Legal research",
+      "Document drafting",
+      "Case analysis",
+      "Compliance guidance",
+    ],
   },
   {
     id: "medical",
     name: "Medical Assistant",
     description: "Focused on medical information and healthcare",
     category: "Healthcare",
-    features: ["Medical research", "Symptom analysis", "Drug information", "Health education"],
+    features: [
+      "Medical research",
+      "Symptom analysis",
+      "Drug information",
+      "Health education",
+    ],
   },
   {
     id: "education",
     name: "Education Assistant",
     description: "Designed for teaching and learning support",
     category: "Education",
-    features: ["Lesson planning", "Student assessment", "Curriculum design", "Learning resources"],
+    features: [
+      "Lesson planning",
+      "Student assessment",
+      "Curriculum design",
+      "Learning resources",
+    ],
   },
   {
     id: "finance",
     name: "Finance Assistant",
     description: "Expert in financial analysis and planning",
     category: "Finance",
-    features: ["Financial planning", "Investment analysis", "Budget management", "Risk assessment"],
+    features: [
+      "Financial planning",
+      "Investment analysis",
+      "Budget management",
+      "Risk assessment",
+    ],
   },
 ];
 
-const categories = ["All", ...Array.from(new Set(assistantTypes.map(a => a.category)))];
+const categories = [
+  "All",
+  ...Array.from(new Set(assistantTypes.map((a) => a.category))),
+];
 
 export default function AssistantsPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [selectedAssistant, setSelectedAssistant] = useState<string | null>(null);
+  const [selectedAssistant, setSelectedAssistant] = useState<string | null>(
+    null
+  );
 
   // Filter assistants based on search term and category
   const filteredAssistants = useMemo(() => {
@@ -97,17 +154,21 @@ export default function AssistantsPage() {
 
     // Filter by category
     if (selectedCategory !== "All") {
-      filtered = filtered.filter(assistant => assistant.category === selectedCategory);
+      filtered = filtered.filter(
+        (assistant) => assistant.category === selectedCategory
+      );
     }
 
     // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
-        assistant =>
+        (assistant) =>
           assistant.name.toLowerCase().includes(term) ||
           assistant.description.toLowerCase().includes(term) ||
-          assistant.features.some(feature => feature.toLowerCase().includes(term))
+          assistant.features.some((feature) =>
+            feature.toLowerCase().includes(term)
+          )
       );
     }
 
@@ -121,12 +182,24 @@ export default function AssistantsPage() {
   };
 
   return (
-    <div className="p-6 text-white min-h-screen bg-[#0a0a0a]">
+    <div className="p-6 text-white">
+      {/* Navigation Header */}
+      <div className="mb-6">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+        >
+          <HiArrowLeft size={20} />
+          <span>Back to Chat</span>
+        </button>
+      </div>
+
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">AI Assistants</h1>
         <p className="text-gray-400">
-          Choose from our collection of specialized AI assistants to help with your specific needs.
+          Choose from our collection of specialized AI assistants to help with
+          your specific needs.
         </p>
       </div>
 
@@ -134,7 +207,10 @@ export default function AssistantsPage() {
       <div className="mb-6 space-y-4">
         {/* Search Bar */}
         <div className="relative">
-          <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+          <HiMagnifyingGlass
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+            size={20}
+          />
           <input
             type="text"
             placeholder="Search assistants by name, description, or features..."
@@ -165,7 +241,8 @@ export default function AssistantsPage() {
       {/* Results Count */}
       <div className="mb-4">
         <p className="text-gray-400 text-sm">
-          Showing {filteredAssistants.length} of {assistantTypes.length} assistants
+          Showing {filteredAssistants.length} of {assistantTypes.length}{" "}
+          assistants
         </p>
       </div>
 
@@ -188,7 +265,9 @@ export default function AssistantsPage() {
                   <HiCpuChip size={24} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">{assistant.name}</h3>
+                  <h3 className="text-lg font-semibold text-white">
+                    {assistant.name}
+                  </h3>
                   <span className="text-xs text-blue-400 bg-blue-900 px-2 py-1 rounded">
                     {assistant.category}
                   </span>
@@ -200,14 +279,21 @@ export default function AssistantsPage() {
             </div>
 
             {/* Description */}
-            <p className="text-gray-300 text-sm mb-4">{assistant.description}</p>
+            <p className="text-gray-300 text-sm mb-4">
+              {assistant.description}
+            </p>
 
             {/* Features */}
             <div>
-              <h4 className="text-sm font-medium text-gray-200 mb-2">Key Features:</h4>
+              <h4 className="text-sm font-medium text-gray-200 mb-2">
+                Key Features:
+              </h4>
               <ul className="space-y-1">
                 {assistant.features.slice(0, 3).map((feature, index) => (
-                  <li key={index} className="text-xs text-gray-400 flex items-center gap-2">
+                  <li
+                    key={index}
+                    className="text-xs text-gray-400 flex items-center gap-2"
+                  >
                     <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
                     {feature}
                   </li>
@@ -227,7 +313,9 @@ export default function AssistantsPage() {
       {filteredAssistants.length === 0 && (
         <div className="text-center py-12">
           <HiCpuChip size={48} className="text-gray-600 mx-auto mb-4" />
-          <h3 className="text-xl font-medium text-gray-400 mb-2">No assistants found</h3>
+          <h3 className="text-xl font-medium text-gray-400 mb-2">
+            No assistants found
+          </h3>
           <p className="text-gray-500">
             Try adjusting your search terms or category filter.
           </p>
