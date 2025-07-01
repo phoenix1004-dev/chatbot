@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dropdown, DropdownItem } from "../ui/Dropdown";
 import {
@@ -12,6 +12,7 @@ import {
 } from "react-icons/hi2";
 import { BsWindowSidebar } from "react-icons/bs";
 import { useSidebar } from "../../contexts/SidebarContext";
+import { Assistant } from "@/types/assistant";
 
 interface DropdownItemProps {
   id: string;
@@ -21,8 +22,11 @@ interface DropdownItemProps {
 
 // Assistant Type Dropdown Component with Search
 interface AssistantTypeDropdownProps {
-  selectedAssistant: DropdownItemProps;
-  onAssistantChange: (assistant: DropdownItemProps) => void;
+  selectedAssistant: Assistant | null;
+  onAssistantChange: (assistant: Assistant) => void;
+  assistants: Assistant[];
+  isLoading: boolean;
+  error: string | null;
 }
 
 const chatModels: DropdownItemProps[] = [
@@ -51,77 +55,38 @@ const chatTypeModels: DropdownItemProps[] = [
   },
 ];
 
-const assistantTypes: DropdownItemProps[] = [
-  {
-    id: "general",
-    name: "General Assistant",
-    description: "All-purpose AI assistant for various tasks",
-  },
-  {
-    id: "code",
-    name: "Code Assistant",
-    description: "Specialized for programming and development",
-  },
-  {
-    id: "creative",
-    name: "Creative Assistant",
-    description: "Focused on creative writing and content",
-  },
-  {
-    id: "research",
-    name: "Research Assistant",
-    description: "Optimized for research and analysis",
-  },
-  {
-    id: "data",
-    name: "Data Analyst",
-    description: "Expert in data analysis and visualization",
-  },
-  {
-    id: "marketing",
-    name: "Marketing Assistant",
-    description: "Specialized in marketing strategies and campaigns",
-  },
-  {
-    id: "legal",
-    name: "Legal Assistant",
-    description: "Knowledgeable in legal research and documentation",
-  },
-  {
-    id: "medical",
-    name: "Medical Assistant",
-    description: "Focused on medical information and healthcare",
-  },
-  {
-    id: "education",
-    name: "Education Assistant",
-    description: "Designed for teaching and learning support",
-  },
-  {
-    id: "finance",
-    name: "Finance Assistant",
-    description: "Expert in financial analysis and planning",
-  },
-];
+// Default assistant for fallback when no custom assistants are available
+const defaultAssistant: Assistant = {
+  id: "default",
+  name: "General Assistant",
+  instructions: "You are a helpful AI assistant.",
+  persona: "Friendly and knowledgeable",
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
 
 const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
   selectedAssistant,
   onAssistantChange,
+  assistants,
+  isLoading,
+  error,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const router = useRouter();
 
-  // Filter assistant types based on search term
-  const filteredAssistantTypes = useMemo(() => {
-    if (!searchTerm.trim()) return assistantTypes;
+  // Filter assistants based on search term
+  const filteredAssistants = useMemo(() => {
+    if (!searchTerm.trim()) return assistants;
 
     const term = searchTerm.toLowerCase();
-    return assistantTypes.filter(
+    return assistants.filter(
       (assistant) =>
         assistant.name.toLowerCase().includes(term) ||
-        assistant.description.toLowerCase().includes(term)
+        assistant.instructions.toLowerCase().includes(term) ||
+        assistant.persona.toLowerCase().includes(term)
     );
-  }, [searchTerm]);
+  }, [searchTerm, assistants]);
 
   return (
     <Dropdown
@@ -131,7 +96,11 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
       trigger={
         <button className="flex items-center gap-2 px-3 py-2 text-white hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 transition-colors cursor-pointer">
           <HiCpuChip size={16} />
-          <span className="text-sm">{selectedAssistant.name}</span>
+          <span className="text-sm">
+            {isLoading
+              ? "Loading..."
+              : selectedAssistant?.name || "No Assistant"}
+          </span>
           <HiChevronDown size={16} />
         </button>
       }
@@ -147,7 +116,7 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
             }}
             className="w-full px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors border border-gray-300 dark:border-gray-600"
           >
-            View All Assistants ({assistantTypes.length})
+            View All Assistants ({assistants.length})
           </button>
         </div>
 
@@ -166,8 +135,16 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
 
       {/* Scrollable assistant list section only */}
       <div className="overflow-y-auto max-h-80 dropdown-scroll">
-        {filteredAssistantTypes.length > 0 ? (
-          filteredAssistantTypes.map((assistant) => (
+        {error ? (
+          <div className="px-4 py-3 text-sm text-red-500 dark:text-red-400 text-center">
+            Error loading assistants
+          </div>
+        ) : isLoading ? (
+          <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+            Loading assistants...
+          </div>
+        ) : filteredAssistants.length > 0 ? (
+          filteredAssistants.map((assistant) => (
             <DropdownItem
               key={assistant.id}
               onClick={() => onAssistantChange(assistant)}
@@ -177,10 +154,12 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
                 <div className="flex flex-col items-start">
                   <span className="text-sm font-medium">{assistant.name}</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {assistant.description}
+                    {assistant.instructions.length > 60
+                      ? `${assistant.instructions.substring(0, 60)}...`
+                      : assistant.instructions}
                   </span>
                 </div>
-                {selectedAssistant.id === assistant.id && (
+                {selectedAssistant?.id === assistant.id && (
                   <HiCheck
                     size={16}
                     className="text-black bg-white flex-shrink-0 ml-2 rounded-full p-1"
@@ -191,7 +170,9 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
           ))
         ) : (
           <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400 text-center">
-            No assistants found
+            {assistants.length === 0
+              ? "No assistants available"
+              : "No assistants found"}
           </div>
         )}
       </div>
@@ -206,10 +187,53 @@ export const Topbar: React.FC = () => {
   const [selectedPrivacyId, setSelectedPrivacyId] = useState<string>(
     chatTypeModels[0].id
   );
-  const [selectedAssistantId, setSelectedAssistantId] = useState<string>(
-    assistantTypes[0].id
+  const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(
+    null
   );
+  const [assistants, setAssistants] = useState<Assistant[]>([]);
+  const [isLoadingAssistants, setIsLoadingAssistants] = useState(true);
+  const [assistantsError, setAssistantsError] = useState<string | null>(null);
   const { toggle, isOpen } = useSidebar();
+
+  // Fetch assistants on component mount
+  useEffect(() => {
+    const fetchAssistants = async () => {
+      try {
+        setIsLoadingAssistants(true);
+        setAssistantsError(null);
+
+        const response = await fetch("/api/assistants");
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to fetch assistants");
+        }
+
+        const assistantsData = await response.json();
+        setAssistants(assistantsData);
+
+        // Set the first assistant as selected if available, otherwise use default
+        if (assistantsData.length > 0) {
+          setSelectedAssistant(assistantsData[0]);
+        } else {
+          setSelectedAssistant(defaultAssistant);
+        }
+      } catch (error) {
+        console.error("Error fetching assistants:", error);
+        setAssistantsError(
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred"
+        );
+        // Use default assistant on error
+        setSelectedAssistant(defaultAssistant);
+      } finally {
+        setIsLoadingAssistants(false);
+      }
+    };
+
+    fetchAssistants();
+  }, []);
 
   // Helper functions to get selected objects
   const selectedModel =
@@ -217,9 +241,6 @@ export const Topbar: React.FC = () => {
   const selectedPrivacy =
     chatTypeModels.find((privacy) => privacy.id === selectedPrivacyId) ||
     chatTypeModels[0];
-  const selectedAssistant =
-    assistantTypes.find((assistant) => assistant.id === selectedAssistantId) ||
-    assistantTypes[0];
 
   const handleSidebarToggle = () => {
     toggle();
@@ -240,9 +261,9 @@ export const Topbar: React.FC = () => {
     console.log("Privacy changed to:", privacy.name);
   };
 
-  const handleAssistantTypeChange = (assistant: DropdownItemProps) => {
-    setSelectedAssistantId(assistant.id);
-    console.log("Assistant type changed to:", assistant.name);
+  const handleAssistantChange = (assistant: Assistant) => {
+    setSelectedAssistant(assistant);
+    console.log("Assistant changed to:", assistant.name);
   };
 
   return (
@@ -338,7 +359,10 @@ export const Topbar: React.FC = () => {
       {/* AI Assistant Type dropdown */}
       <AssistantTypeDropdown
         selectedAssistant={selectedAssistant}
-        onAssistantChange={handleAssistantTypeChange}
+        onAssistantChange={handleAssistantChange}
+        assistants={assistants}
+        isLoading={isLoadingAssistants}
+        error={assistantsError}
       />
     </div>
   );
