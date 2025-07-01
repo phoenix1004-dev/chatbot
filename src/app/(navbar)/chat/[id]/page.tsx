@@ -78,6 +78,46 @@ export default function ChatPage() {
 
         const fetchedMessages: Message[] = await response.json();
         setMessages(fetchedMessages);
+
+        // Check if we need to generate an AI response
+        if (fetchedMessages.length > 0) {
+          const lastMessage = fetchedMessages[fetchedMessages.length - 1];
+
+          // If the last message is from user and there's no assistant response after it
+          if (lastMessage.role === "user") {
+            // Check if there's an assistant message after this user message
+            const hasAssistantResponse = fetchedMessages.some(
+              (msg, index) =>
+                index > fetchedMessages.indexOf(lastMessage) &&
+                msg.role === "assistant"
+            );
+
+            if (!hasAssistantResponse) {
+              // Generate AI response
+              try {
+                const generateResponse = await fetch(
+                  `/api/chats/${chatId}/generate-response`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                  }
+                );
+
+                if (generateResponse.ok) {
+                  const assistantMessage: Message =
+                    await generateResponse.json();
+                  setMessages([...fetchedMessages, assistantMessage]);
+                } else {
+                  console.error("Failed to generate AI response");
+                }
+              } catch (error) {
+                console.error("Error generating AI response:", error);
+              }
+            }
+          }
+        }
       } catch (error) {
         console.error("Error fetching messages:", error);
         setMessagesError(

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Message } from "@/types/assistant";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/navbar/Topbar";
@@ -56,12 +56,11 @@ function NavbarLayoutContent({
         }
 
         const newChat = await response.json();
-        setCurrentChat(newChat);
 
         // Refresh the sidebar to show the new chat
         refreshChats();
 
-        // Navigate to the new chat
+        // Navigate to the new chat - this will trigger the AI response generation
         router.push(`/chat/${newChat.id}`);
 
         console.log("New chat created:", newChat);
