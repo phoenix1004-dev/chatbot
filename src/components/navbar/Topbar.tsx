@@ -29,6 +29,7 @@ interface AssistantTypeDropdownProps {
   assistants: Assistant[];
   isLoading: boolean;
   error: string | null;
+  disabled?: boolean;
 }
 
 const chatModels: DropdownItemProps[] = [
@@ -73,6 +74,7 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
   assistants,
   isLoading,
   error,
+  disabled = false,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -116,8 +118,16 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
             className="text-white"
           />
         </div>
+      ) : // Show dropdown when not loading
+      disabled ? (
+        // Show non-interactive display when disabled
+        <div className="flex items-center gap-2 px-3 py-2 text-white rounded-lg border border-gray-300 dark:border-gray-600 opacity-75">
+          <HiCpuChip size={16} />
+          <span className="text-sm">
+            {selectedAssistant?.name || "No Assistant"}
+          </span>
+        </div>
       ) : (
-        // Show dropdown when not loading
         <Dropdown
           align="right"
           showSearch={false}
@@ -238,8 +248,16 @@ export const Topbar: React.FC = () => {
   const [isLoadingAssistants, setIsLoadingAssistants] = useState(true);
   const [assistantsError, setAssistantsError] = useState<string | null>(null);
   const { toggle, isOpen } = useSidebar();
-  const { selectedAssistant, setSelectedAssistant, setCurrentChat } = useChat();
+  const {
+    selectedAssistant,
+    setSelectedAssistant,
+    setCurrentChat,
+    currentChat,
+  } = useChat();
   const router = useRouter();
+
+  // Disable assistant selection when viewing an existing chat
+  const isAssistantSelectionDisabled = currentChat !== null;
 
   // Fetch assistants on component mount
   useEffect(() => {
@@ -412,6 +430,7 @@ export const Topbar: React.FC = () => {
         assistants={assistants}
         isLoading={isLoadingAssistants}
         error={assistantsError}
+        disabled={isAssistantSelectionDisabled}
       />
     </div>
   );
