@@ -13,7 +13,9 @@ export async function GET() {
         *,
         assistants (
           id,
-          name
+          name,
+          instructions,
+          persona
         )
       `
       )

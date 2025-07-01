@@ -7,6 +7,7 @@ import React, {
   createContext,
   useContext,
 } from "react";
+import { createPortal } from "react-dom";
 
 // Context to share close function with dropdown items
 const DropdownContext = createContext<{ close: () => void } | null>(null);
@@ -15,24 +16,30 @@ interface DropdownProps {
   trigger: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  menuClassName?: string;
   align?: "left" | "right";
   showSearch?: boolean;
   searchPlaceholder?: string;
   maxHeight?: string;
+  menuWidth?: string;
 }
 
 export const Dropdown: React.FC<DropdownProps> = ({
   trigger,
   children,
   className = "",
+  menuClassName = "",
   align = "left",
   showSearch = false,
   searchPlaceholder = "Search...",
   maxHeight = "300px",
+  menuWidth = "280px",
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 });
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const closeDropdown = () => {
@@ -41,6 +48,13 @@ export const Dropdown: React.FC<DropdownProps> = ({
   };
 
   const openDropdown = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+      });
+    }
     setIsOpen(true);
     // Focus search input after dropdown opens
     if (showSearch) {
@@ -68,40 +82,57 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      <div onClick={() => (isOpen ? closeDropdown() : openDropdown())}>
+      <div
+        ref={triggerRef}
+        onClick={() => (isOpen ? closeDropdown() : openDropdown())}
+      >
         {trigger}
       </div>
-      {isOpen && (
-        <DropdownContext.Provider value={{ close: closeDropdown }}>
-          <div
-            className={`absolute top-full mt-1 bg-background border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 min-w-[280px] ${
-              align === "right" ? "right-0" : "left-0"
-            }`}
-          >
-            {showSearch && (
-              <div className="p-3 border-b border-gray-200 dark:border-gray-700">
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder={searchPlaceholder}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            )}
+      {isOpen &&
+        createPortal(
+          <DropdownContext.Provider value={{ close: closeDropdown }}>
             <div
-              className={
-                maxHeight === "none" ? "" : "overflow-y-auto dropdown-scroll"
-              }
-              style={maxHeight === "none" ? {} : { maxHeight: maxHeight }}
+              className={`absolute mt-1 bg-background border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 ${
+                align === "right" ? "right-0" : "left-0"
+              } ${menuClassName}`}
+              style={{
+                top: `${menuPosition.top}px`,
+                left:
+                  align === "right"
+                    ? `${
+                        menuPosition.left -
+                        parseInt(menuWidth) +
+                        (triggerRef.current?.offsetWidth || 0)
+                      }px`
+                    : `${menuPosition.left}px`,
+                width: menuWidth,
+              }}
             >
-              {children}
+              {showSearch && (
+                <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder={searchPlaceholder}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              )}
+              <div
+                className={
+                  maxHeight === "none" ? "" : "overflow-y-auto dropdown-scroll"
+                }
+                style={maxHeight === "none" ? {} : { maxHeight: maxHeight }}
+              >
+                {children}
+              </div>
             </div>
-          </div>
-        </DropdownContext.Provider>
-      )}
+          </DropdownContext.Provider>,
+          document.body
+        )}
     </div>
   );
 };

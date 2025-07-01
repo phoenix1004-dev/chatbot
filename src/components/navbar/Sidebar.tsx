@@ -4,16 +4,24 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSidebar } from "../../contexts/SidebarContext";
 import { useChat } from "../../contexts/ChatContext";
-import { HiEllipsisHorizontal, HiPlus } from "react-icons/hi2";
+import {
+  HiEllipsisHorizontal,
+  HiPlus,
+  HiPencil,
+  HiTrash,
+} from "react-icons/hi2";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
-import { Chat } from "@/types/assistant";
+import { ChatWithAssistant } from "@/types/assistant";
+import { Dropdown, DropdownItem } from "../ui/Dropdown";
 
 export const Sidebar: React.FC = () => {
   const { isOpen } = useSidebar();
   const { currentChat, setCurrentChat, setRefreshChats } = useChat();
-  const [chats, setChats] = useState<Chat[]>([]);
+  const [chats, setChats] = useState<ChatWithAssistant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [renamingChatId, setRenamingChatId] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState("");
   const router = useRouter();
 
   // Fetch chats function
@@ -46,7 +54,7 @@ export const Sidebar: React.FC = () => {
     setRefreshChats(() => fetchChats);
   }, [setRefreshChats]);
 
-  const handleChatClick = (chat: Chat) => {
+  const handleChatClick = (chat: ChatWithAssistant) => {
     setCurrentChat(chat);
     router.push(`/chat/${chat.id}`);
   };
@@ -74,7 +82,7 @@ export const Sidebar: React.FC = () => {
 
   // Group chats by date
   const groupedChats = chats.reduce(
-    (groups: { [key: string]: Chat[] }, chat) => {
+    (groups: { [key: string]: ChatWithAssistant[] }, chat) => {
       const dateKey = formatDate(chat.created_at);
       if (!groups[dateKey]) {
         groups[dateKey] = [];
@@ -85,11 +93,70 @@ export const Sidebar: React.FC = () => {
     {}
   );
 
+  const handleStartRename = (chatId: string, title: string) => {
+    setRenamingChatId(chatId);
+    setNewTitle(title);
+  };
+
+  const handleUpdateChat = async (chatId: string) => {
+    if (!newTitle || newTitle.trim() === "") {
+      setRenamingChatId(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/chats/${chatId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update chat title");
+      }
+
+      fetchChats();
+    } catch (error) {
+      console.error("Error updating chat:", error);
+      alert("Failed to update chat title.");
+    } finally {
+      setRenamingChatId(null);
+    }
+  };
+
+  const handleDeleteChat = async (chatId: string) => {
+    if (window.confirm("Are you sure you want to delete this chat?")) {
+      try {
+        const response = await fetch(`/api/chats/${chatId}`, {
+          method: "DELETE",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to delete chat");
+        }
+
+        // If the deleted chat was the current one, navigate away
+        if (currentChat?.id === chatId) {
+          setCurrentChat(null);
+          router.push("/");
+        }
+
+        // Refresh the chat list
+        fetchChats();
+      } catch (error) {
+        console.error("Error deleting chat:", error);
+        alert("Failed to delete chat.");
+      }
+    }
+  };
+
   return (
     <div
       className={`h-full bg-[#0a0a0a] border-r border-gray-800 flex flex-col transition-all duration-300 ease-in-out ${
         isOpen ? "w-64" : "w-0"
-      } overflow-hidden`}
+      }`}
     >
       {isOpen && (
         <>
@@ -140,26 +207,70 @@ export const Sidebar: React.FC = () => {
                     {dateChats.map((chat) => (
                       <div
                         key={chat.id}
-                        onClick={() => handleChatClick(chat)}
+                        onClick={() =>
+                          renamingChatId !== chat.id && handleChatClick(chat)
+                        }
                         className={`group flex items-center justify-between p-2 rounded-lg hover:bg-gray-800 cursor-pointer ${
                           currentChat?.id === chat.id ? "bg-gray-800" : ""
                         }`}
                       >
-                        <span className="text-white text-sm truncate flex-1">
-                          {chat.title}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // TODO: Implement chat options menu
-                          }}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-700 rounded transition-opacity"
-                        >
-                          <HiEllipsisHorizontal
-                            size={16}
-                            className="text-gray-400"
+                        {renamingChatId === chat.id ? (
+                          <input
+                            type="text"
+                            value={newTitle}
+                            onChange={(e) => setNewTitle(e.target.value)}
+                            onBlur={() => handleUpdateChat(chat.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleUpdateChat(chat.id);
+                              } else if (e.key === "Escape") {
+                                setRenamingChatId(null);
+                              }
+                            }}
+                            className="text-white text-sm bg-transparent border-b border-gray-500 focus:outline-none flex-1"
+                            autoFocus
                           />
-                        </button>
+                        ) : (
+                          <span className="text-white text-sm truncate flex-1">
+                            {chat.title}
+                          </span>
+                        )}
+                        <div
+                          className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Dropdown
+                            align="right"
+                            menuWidth="120px"
+                            trigger={
+                              <button className="p-1 hover:bg-gray-700 rounded">
+                                <HiEllipsisHorizontal
+                                  size={16}
+                                  className="text-gray-400"
+                                />
+                              </button>
+                            }
+                          >
+                            <DropdownItem
+                              onClick={() =>
+                                handleStartRename(chat.id, chat.title)
+                              }
+                            >
+                              <div className="flex items-center space-x-2">
+                                <HiPencil size={16} />
+                                <span>Rename</span>
+                              </div>
+                            </DropdownItem>
+                            <DropdownItem
+                              onClick={() => handleDeleteChat(chat.id)}
+                            >
+                              <div className="flex items-center space-x-2 text-red-500">
+                                <HiTrash size={16} />
+                                <span>Delete</span>
+                              </div>
+                            </DropdownItem>
+                          </Dropdown>
+                        </div>
                       </div>
                     ))}
                   </div>
