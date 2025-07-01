@@ -4,14 +4,24 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { useChat } from "@/contexts/ChatContext";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { Chat } from "@/types/assistant";
+import { MessageList } from "@/components/chat/MessageList";
+import { ChatWithAssistant, Message } from "@/types/assistant";
 
 export default function ChatPage() {
   const params = useParams();
   const chatId = params.id as string;
-  const { currentChat, setCurrentChat } = useChat();
+  const {
+    currentChat,
+    setCurrentChat,
+    messages,
+    setMessages,
+    isLoadingMessages,
+    setIsLoadingMessages,
+    isSendingMessage,
+  } = useChat();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchChat = async () => {
@@ -35,11 +45,15 @@ export default function ChatPage() {
           throw new Error("Failed to fetch chat");
         }
 
-        const chat: Chat = await response.json();
+        const chat: ChatWithAssistant = await response.json();
         setCurrentChat(chat);
       } catch (error) {
         console.error("Error fetching chat:", error);
-        setError(error instanceof Error ? error.message : "An unexpected error occurred");
+        setError(
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -47,6 +61,35 @@ export default function ChatPage() {
 
     fetchChat();
   }, [chatId, currentChat?.id, setCurrentChat]);
+
+  // Fetch messages when chat changes
+  useEffect(() => {
+    const fetchMessages = async () => {
+      if (!chatId || !currentChat) return;
+
+      try {
+        setIsLoadingMessages(true);
+        setMessagesError(null);
+
+        const response = await fetch(`/api/chats/${chatId}/messages`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch messages");
+        }
+
+        const fetchedMessages: Message[] = await response.json();
+        setMessages(fetchedMessages);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+        setMessagesError(
+          error instanceof Error ? error.message : "Failed to load messages"
+        );
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    };
+
+    fetchMessages();
+  }, [chatId, currentChat, setMessages, setIsLoadingMessages]);
 
   if (isLoading) {
     return (
@@ -91,16 +134,13 @@ export default function ChatPage() {
       </div>
 
       {/* Chat messages area */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-4xl mx-auto">
-          {/* Placeholder for chat messages */}
-          <div className="text-center text-gray-500 mt-8">
-            <p>This is where chat messages will appear.</p>
-            <p className="text-sm mt-2">
-              Chat functionality will be implemented in the next phase.
-            </p>
-          </div>
-        </div>
+      <div className="flex-1 overflow-hidden">
+        <MessageList
+          messages={messages}
+          assistantName={currentChat.assistants?.name || "Assistant"}
+          isLoading={isLoadingMessages || isSendingMessage}
+          error={messagesError}
+        />
       </div>
     </div>
   );

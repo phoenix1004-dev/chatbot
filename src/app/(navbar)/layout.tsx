@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { Message } from "@/types/assistant";
 import { useRouter } from "next/navigation";
 import { Topbar } from "@/components/navbar/Topbar";
 import { Sidebar } from "@/components/navbar/Sidebar";
@@ -22,6 +23,10 @@ function NavbarLayoutContent({
     isCreatingChat,
     setIsCreatingChat,
     refreshChats,
+    messages,
+    setMessages,
+    isSendingMessage,
+    setIsSendingMessage,
   } = useChat();
 
   const handleSendMessage = async (message: string, attachments?: File[]) => {
@@ -67,8 +72,62 @@ function NavbarLayoutContent({
         setIsCreatingChat(false);
       }
     } else {
-      // TODO: Send message to existing chat
-      console.log("Sending message to existing chat:", message);
+      // Send message to existing chat
+      if (!currentChat) {
+        console.error("No current chat selected");
+        return;
+      }
+
+      // Optimistically add user message to the UI
+      const optimisticUserMessage = {
+        id: `temp-${Date.now()}`,
+        chat_id: currentChat.id,
+        role: "user" as const,
+        content: message,
+        created_at: new Date().toISOString(),
+      };
+      setMessages([...messages, optimisticUserMessage]);
+      setIsSendingMessage(true);
+
+      try {
+        const response = await fetch(`/api/chats/${currentChat.id}/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: message,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to send message");
+        }
+
+        const { userMessage, assistantMessage } = (await response.json()) as {
+          userMessage: Message;
+          assistantMessage: Message;
+        };
+
+        // Replace optimistic message with the real one and add assistant's message
+        const newMessages = [
+          ...messages.filter((m) => m.id !== optimisticUserMessage.id),
+          userMessage,
+          assistantMessage,
+        ];
+        setMessages(newMessages);
+
+        // Refresh the sidebar to update the chat's updated_at timestamp
+        refreshChats();
+
+        console.log("Message sent successfully");
+      } catch (error) {
+        console.error("Error sending message:", error);
+        // TODO: Show error message to user
+      } finally {
+        setIsSendingMessage(false);
+      }
     }
 
     if (attachments && attachments.length > 0) {
@@ -94,12 +153,14 @@ function NavbarLayoutContent({
           </main>
           <MessageInput
             onSendMessage={handleSendMessage}
-            disabled={isCreatingChat || !selectedAssistant}
+            disabled={isCreatingChat || isSendingMessage || !selectedAssistant}
             placeholder={
               !selectedAssistant
                 ? "Select an assistant to start chatting..."
                 : isCreatingChat
                 ? "Creating chat..."
+                : isSendingMessage
+                ? "Sending message..."
                 : "Send a message..."
             }
           />
