@@ -47,8 +47,6 @@ export default function Home() {
     } catch (error) {
       console.error("Error creating chat:", error);
       // TODO: Show error message to user
-    } finally {
-      setIsCreatingChat(false);
     }
 
     if (attachments && attachments.length > 0) {

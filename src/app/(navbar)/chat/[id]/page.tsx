@@ -18,121 +18,77 @@ export default function ChatPage() {
     selectedAssistant,
     refreshChats,
     isCreatingChat,
+    setIsCreatingChat,
   } = useChat();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [messagesError, setMessagesError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchChat = async () => {
-      if (!chatId) return;
+    if (isCreatingChat) {
+      setIsCreatingChat(false);
+    }
+  }, [isCreatingChat, setIsCreatingChat]);
 
-      // If we already have the current chat and it matches, no need to fetch
-      if (currentChat?.id === chatId) {
-        setIsLoading(false);
-        return;
-      }
+  useEffect(() => {
+    const fetchChatAndMessages = async () => {
+      if (!chatId) return;
 
       try {
         setIsLoading(true);
         setError(null);
+        setMessagesError(null);
 
-        const response = await fetch(`/api/chats/${chatId}`);
-        if (!response.ok) {
-          if (response.status === 404) {
+        // Fetch chat details
+        const chatResponse = await fetch(`/api/chats/${chatId}`);
+        if (!chatResponse.ok) {
+          if (chatResponse.status === 404) {
             throw new Error("Chat not found");
           }
           throw new Error("Failed to fetch chat");
         }
-
-        const chat: ChatWithAssistant = await response.json();
+        const chat: ChatWithAssistant = await chatResponse.json();
         setCurrentChat(chat);
+
+        // Fetch messages
+        const messagesResponse = await fetch(`/api/chats/${chatId}/messages`);
+        if (!messagesResponse.ok) {
+          throw new Error("Failed to fetch messages");
+        }
+        const fetchedMessages: Message[] = await messagesResponse.json();
+        setMessages(fetchedMessages);
+
+        // Generate AI response if needed
+        if (
+          fetchedMessages.length > 0 &&
+          fetchedMessages[fetchedMessages.length - 1].role === "user"
+        ) {
+          const generateResponse = await fetch(
+            `/api/chats/${chatId}/generate-response`,
+            { method: "POST" }
+          );
+          if (generateResponse.ok) {
+            const assistantMessage: Message = await generateResponse.json();
+            setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+          }
+        }
       } catch (error) {
-        console.error("Error fetching chat:", error);
-        setError(
+        console.error("Error fetching data:", error);
+        const errorMessage =
           error instanceof Error
             ? error.message
-            : "An unexpected error occurred"
-        );
+            : "An unexpected error occurred";
+        setError(errorMessage);
+        setMessagesError(errorMessage);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchChat();
-  }, [chatId, currentChat?.id, setCurrentChat]);
-
-  // Fetch messages when chat changes
-  useEffect(() => {
-    const fetchMessages = async () => {
-      if (!chatId || !currentChat) return;
-
-      try {
-        setIsLoadingMessages(true);
-        setMessagesError(null);
-
-        const response = await fetch(`/api/chats/${chatId}/messages`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch messages");
-        }
-
-        const fetchedMessages: Message[] = await response.json();
-        setMessages(fetchedMessages);
-
-        // Check if we need to generate an AI response
-        if (fetchedMessages.length > 0) {
-          const lastMessage = fetchedMessages[fetchedMessages.length - 1];
-
-          // If the last message is from user and there's no assistant response after it
-          if (lastMessage.role === "user") {
-            // Check if there's an assistant message after this user message
-            const hasAssistantResponse = fetchedMessages.some(
-              (msg, index) =>
-                index > fetchedMessages.indexOf(lastMessage) &&
-                msg.role === "assistant"
-            );
-
-            if (!hasAssistantResponse) {
-              // Generate AI response
-              try {
-                const generateResponse = await fetch(
-                  `/api/chats/${chatId}/generate-response`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                  }
-                );
-
-                if (generateResponse.ok) {
-                  const assistantMessage: Message =
-                    await generateResponse.json();
-                  setMessages([...fetchedMessages, assistantMessage]);
-                } else {
-                  console.error("Failed to generate AI response");
-                }
-              } catch (error) {
-                console.error("Error generating AI response:", error);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        setMessagesError(
-          error instanceof Error ? error.message : "Failed to load messages"
-        );
-      } finally {
-        setIsLoadingMessages(false);
-      }
-    };
-
-    fetchMessages();
-  }, [chatId, currentChat, setMessages, setIsLoadingMessages]);
+    fetchChatAndMessages();
+  }, [chatId, setCurrentChat]);
 
   const handleSendMessage = async (message: string, attachments?: File[]) => {
     if (!selectedAssistant) {
@@ -252,14 +208,19 @@ export default function ChatPage() {
         <MessageList
           messages={messages}
           assistantName={currentChat.assistants?.name || "Assistant"}
-          isLoading={isLoadingMessages || isSendingMessage}
+          isLoading={isSendingMessage}
           error={messagesError}
         />
       </div>
       <div className="absolute bottom-0 w-full">
         <MessageInput
           onSendMessage={handleSendMessage}
-          disabled={isCreatingChat || isSendingMessage || !selectedAssistant}
+          disabled={
+            isLoading ||
+            isCreatingChat ||
+            isSendingMessage ||
+            !selectedAssistant
+          }
           placeholder={
             !selectedAssistant
               ? "Select an assistant to start chatting..."
