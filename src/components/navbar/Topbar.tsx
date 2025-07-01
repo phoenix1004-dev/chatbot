@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dropdown, DropdownItem } from "../ui/Dropdown";
-import { LoadingSpinner, LoadingSpinnerWithText } from "../ui/LoadingSpinner";
+import { LoadingSpinnerWithText } from "../ui/LoadingSpinner";
 import {
   HiPlus,
   HiChevronDown,
@@ -13,6 +13,7 @@ import {
 } from "react-icons/hi2";
 import { BsWindowSidebar } from "react-icons/bs";
 import { useSidebar } from "../../contexts/SidebarContext";
+import { useChat } from "../../contexts/ChatContext";
 import { Assistant } from "@/types/assistant";
 
 interface DropdownItemProps {
@@ -233,13 +234,12 @@ export const Topbar: React.FC = () => {
   const [selectedPrivacyId, setSelectedPrivacyId] = useState<string>(
     chatTypeModels[0].id
   );
-  const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(
-    null
-  );
   const [assistants, setAssistants] = useState<Assistant[]>([]);
   const [isLoadingAssistants, setIsLoadingAssistants] = useState(true);
   const [assistantsError, setAssistantsError] = useState<string | null>(null);
   const { toggle, isOpen } = useSidebar();
+  const { selectedAssistant, setSelectedAssistant, setCurrentChat } = useChat();
+  const router = useRouter();
 
   // Fetch assistants on component mount
   useEffect(() => {
@@ -293,8 +293,10 @@ export const Topbar: React.FC = () => {
   };
 
   const handleNewChat = () => {
-    // TODO: Implement new chat functionality
-    console.log("New chat");
+    // Clear current chat to start a new one
+    setCurrentChat(null);
+    // Navigate to home page where user can start a new chat
+    router.push("/");
   };
 
   const handleChatModelChange = (model: DropdownItemProps) => {
@@ -327,6 +329,7 @@ export const Topbar: React.FC = () => {
         <button
           onClick={handleNewChat}
           className="p-2 text-white hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 transition-colors cursor-pointer"
+          title="New Chat"
         >
           <HiPlus size={20} />
         </button>
