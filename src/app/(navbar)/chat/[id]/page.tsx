@@ -59,12 +59,15 @@ export default function ChatPage() {
         }
         const fetchedMessages: Message[] = await messagesResponse.json();
         setMessages(fetchedMessages);
+        setIsLoading(false);
 
         // Generate AI response if needed
         if (
           fetchedMessages.length > 0 &&
           fetchedMessages[fetchedMessages.length - 1].role === "user"
         ) {
+          setIsSendingMessage(true);
+
           const generateResponse = await fetch(
             `/api/chats/${chatId}/generate-response`,
             { method: "POST" }
@@ -83,7 +86,7 @@ export default function ChatPage() {
         setError(errorMessage);
         setMessagesError(errorMessage);
       } finally {
-        setIsLoading(false);
+        setIsSendingMessage(false);
       }
     };
 
