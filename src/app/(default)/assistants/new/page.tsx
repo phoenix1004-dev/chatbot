@@ -3,14 +3,19 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { AssistantForm } from "@/components/assistants/AssistantForm";
-import { CreateAssistantRequest } from "@/types/assistant";
+import {
+  CreateAssistantRequest,
+  UpdateAssistantRequest,
+} from "@/types/assistant";
 
 export default function NewAssistantPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (data: CreateAssistantRequest) => {
+  const handleSubmit = async (
+    data: CreateAssistantRequest | UpdateAssistantRequest
+  ) => {
     setIsLoading(true);
     setError(null);
 
@@ -29,12 +34,14 @@ export default function NewAssistantPage() {
       }
 
       const assistant = await response.json();
-      
+
       // Redirect to the new assistant's detail page
       router.push(`/assistants/${assistant.id}`);
     } catch (error) {
       console.error("Error creating assistant:", error);
-      setError(error instanceof Error ? error.message : "An unexpected error occurred");
+      setError(
+        error instanceof Error ? error.message : "An unexpected error occurred"
+      );
     } finally {
       setIsLoading(false);
     }
