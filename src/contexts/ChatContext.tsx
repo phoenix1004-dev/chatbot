@@ -12,12 +12,6 @@ interface ChatContextType {
   setIsCreatingChat: (creating: boolean) => void;
   refreshChats: () => void;
   setRefreshChats: (refreshFn: () => void) => void;
-  messages: Message[];
-  setMessages: (messages: Message[]) => void;
-  isLoadingMessages: boolean;
-  setIsLoadingMessages: (loading: boolean) => void;
-  isSendingMessage: boolean;
-  setIsSendingMessage: (sending: boolean) => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -43,9 +37,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
   );
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [refreshChats, setRefreshChats] = useState<() => void>(() => () => {});
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   return (
     <ChatContext.Provider
@@ -58,12 +49,6 @@ export const ChatProvider: React.FC<ChatProviderProps> = ({ children }) => {
         setIsCreatingChat,
         refreshChats,
         setRefreshChats,
-        messages,
-        setMessages,
-        isLoadingMessages,
-        setIsLoadingMessages,
-        isSendingMessage,
-        setIsSendingMessage,
       }}
     >
       {children}

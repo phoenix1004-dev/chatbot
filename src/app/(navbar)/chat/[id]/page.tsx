@@ -1,24 +1,27 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useChat } from "@/contexts/ChatContext";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatWithAssistant, Message } from "@/types/assistant";
+import { MessageInput } from "@/components/chat/MessageInput";
 
 export default function ChatPage() {
   const params = useParams();
+  const router = useRouter();
   const chatId = params.id as string;
   const {
     currentChat,
     setCurrentChat,
-    messages,
-    setMessages,
-    isLoadingMessages,
-    setIsLoadingMessages,
-    isSendingMessage,
+    selectedAssistant,
+    refreshChats,
+    isCreatingChat,
   } = useChat();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [messagesError, setMessagesError] = useState<string | null>(null);
@@ -131,6 +134,77 @@ export default function ChatPage() {
     fetchMessages();
   }, [chatId, currentChat, setMessages, setIsLoadingMessages]);
 
+  const handleSendMessage = async (message: string, attachments?: File[]) => {
+    if (!selectedAssistant) {
+      console.error("No assistant selected");
+      return;
+    }
+
+    // Send message to existing chat
+    if (!currentChat) {
+      console.error("No current chat selected");
+      return;
+    }
+
+    // Optimistically add user message to the UI
+    const optimisticUserMessage = {
+      id: `temp-${Date.now()}`,
+      chat_id: currentChat.id,
+      role: "user" as const,
+      content: message,
+      created_at: new Date().toISOString(),
+    };
+    setMessages([...messages, optimisticUserMessage]);
+    setIsSendingMessage(true);
+
+    try {
+      const response = await fetch(`/api/chats/${currentChat.id}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: message,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send message");
+      }
+
+      const { userMessage, assistantMessage } = (await response.json()) as {
+        userMessage: Message;
+        assistantMessage: Message;
+      };
+
+      // Replace optimistic message with the real one and add assistant's message
+      const newMessages = [
+        ...messages.filter((m) => m.id !== optimisticUserMessage.id),
+        userMessage,
+        assistantMessage,
+      ];
+      setMessages(newMessages);
+
+      // Refresh the sidebar to update the chat's updated_at timestamp
+      refreshChats();
+
+      console.log("Message sent successfully");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // TODO: Show error message to user
+    } finally {
+      setIsSendingMessage(false);
+    }
+
+    if (attachments && attachments.length > 0) {
+      console.log(
+        "Attachments:",
+        attachments.map((f) => f.name)
+      );
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -180,6 +254,21 @@ export default function ChatPage() {
           assistantName={currentChat.assistants?.name || "Assistant"}
           isLoading={isLoadingMessages || isSendingMessage}
           error={messagesError}
+        />
+      </div>
+      <div className="absolute bottom-0 w-full">
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          disabled={isCreatingChat || isSendingMessage || !selectedAssistant}
+          placeholder={
+            !selectedAssistant
+              ? "Select an assistant to start chatting..."
+              : isCreatingChat
+              ? "Creating chat..."
+              : isSendingMessage
+              ? "Sending message..."
+              : "Send a message..."
+          }
         />
       </div>
     </div>
