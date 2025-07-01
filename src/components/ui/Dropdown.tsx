@@ -66,19 +66,25 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        closeDropdown();
-      }
+      // Add a small delay to allow click events to process first
+      setTimeout(() => {
+        if (
+          dropdownRef.current &&
+          !dropdownRef.current.contains(event.target as Node)
+        ) {
+          closeDropdown();
+        }
+      }, 0);
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, [isOpen]);
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -150,15 +156,21 @@ export const DropdownItem: React.FC<DropdownItemProps> = ({
 }) => {
   const context = useContext(DropdownContext);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log("DropdownItem clicked, calling onClick");
     onClick?.();
-    context?.close();
+    // Small delay to ensure the click handler executes before closing
+    setTimeout(() => {
+      context?.close();
+    }, 10);
   };
 
   return (
     <div
       className={`px-3 py-2 text-sm text-foreground hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer first:rounded-t-md last:rounded-b-md ${className}`}
-      onClick={handleClick}
+      onMouseDown={handleClick}
     >
       {children}
     </div>
