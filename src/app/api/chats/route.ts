@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { generateChatTitle, generateChatResponse } from "@/lib/openai";
+import { generateChatTitle } from "@/lib/openai";
 import { CreateChatRequest } from "@/types/assistant";
 
 // GET /api/chats - List all chats
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create the first user message
-    const { data: userMessage, error: userMessageError } = await supabase
+    const { error: userMessageError } = await supabase
       .from("messages")
       .insert([
         {
@@ -107,38 +107,7 @@ export async function POST(request: NextRequest) {
       // Don't fail the chat creation, but log the error
     }
 
-    // Generate AI response to the first message
-    if (userMessage) {
-      try {
-        const assistantResponse = await generateChatResponse(
-          [userMessage],
-          assistant.instructions,
-          assistant.persona
-        );
-
-        // Save assistant message
-        const { error: assistantMessageError } = await supabase
-          .from("messages")
-          .insert([
-            {
-              chat_id: chat.id,
-              role: "assistant",
-              content: assistantResponse,
-            },
-          ]);
-
-        if (assistantMessageError) {
-          console.error(
-            "Error creating assistant message:",
-            assistantMessageError
-          );
-          // Don't fail the chat creation, but log the error
-        }
-      } catch (error) {
-        console.error("Error generating assistant response:", error);
-        // Don't fail the chat creation, but log the error
-      }
-    }
+    // Note: AI response will be generated when the chat page loads
 
     return NextResponse.json(chat, { status: 201 });
   } catch (error) {

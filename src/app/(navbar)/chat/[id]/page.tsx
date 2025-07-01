@@ -1,95 +1,165 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useChat } from "@/contexts/ChatContext";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { MessageList } from "@/components/chat/MessageList";
 import { ChatWithAssistant, Message } from "@/types/assistant";
+import { MessageInput } from "@/components/chat/MessageInput";
 
 export default function ChatPage() {
   const params = useParams();
+  const router = useRouter();
   const chatId = params.id as string;
   const {
     currentChat,
     setCurrentChat,
-    messages,
-    setMessages,
-    isLoadingMessages,
-    setIsLoadingMessages,
-    isSendingMessage,
+    selectedAssistant,
+    refreshChats,
+    isCreatingChat,
+    setIsCreatingChat,
   } = useChat();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [messagesError, setMessagesError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchChat = async () => {
-      if (!chatId) return;
+    if (isCreatingChat) {
+      setIsCreatingChat(false);
+    }
+  }, [isCreatingChat, setIsCreatingChat]);
 
-      // If we already have the current chat and it matches, no need to fetch
-      if (currentChat?.id === chatId) {
-        setIsLoading(false);
-        return;
-      }
+  useEffect(() => {
+    const fetchChatAndMessages = async () => {
+      if (!chatId) return;
 
       try {
         setIsLoading(true);
         setError(null);
+        setMessagesError(null);
 
-        const response = await fetch(`/api/chats/${chatId}`);
-        if (!response.ok) {
-          if (response.status === 404) {
+        // Fetch chat details
+        const chatResponse = await fetch(`/api/chats/${chatId}`);
+        if (!chatResponse.ok) {
+          if (chatResponse.status === 404) {
             throw new Error("Chat not found");
           }
           throw new Error("Failed to fetch chat");
         }
-
-        const chat: ChatWithAssistant = await response.json();
+        const chat: ChatWithAssistant = await chatResponse.json();
         setCurrentChat(chat);
+
+        // Fetch messages
+        const messagesResponse = await fetch(`/api/chats/${chatId}/messages`);
+        if (!messagesResponse.ok) {
+          throw new Error("Failed to fetch messages");
+        }
+        const fetchedMessages: Message[] = await messagesResponse.json();
+        setMessages(fetchedMessages);
+
+        // Generate AI response if needed
+        if (
+          fetchedMessages.length > 0 &&
+          fetchedMessages[fetchedMessages.length - 1].role === "user"
+        ) {
+          const generateResponse = await fetch(
+            `/api/chats/${chatId}/generate-response`,
+            { method: "POST" }
+          );
+          if (generateResponse.ok) {
+            const assistantMessage: Message = await generateResponse.json();
+            setMessages((prevMessages) => [...prevMessages, assistantMessage]);
+          }
+        }
       } catch (error) {
-        console.error("Error fetching chat:", error);
-        setError(
+        console.error("Error fetching data:", error);
+        const errorMessage =
           error instanceof Error
             ? error.message
-            : "An unexpected error occurred"
-        );
+            : "An unexpected error occurred";
+        setError(errorMessage);
+        setMessagesError(errorMessage);
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchChat();
-  }, [chatId, currentChat?.id, setCurrentChat]);
+    fetchChatAndMessages();
+  }, [chatId, setCurrentChat]);
 
-  // Fetch messages when chat changes
-  useEffect(() => {
-    const fetchMessages = async () => {
-      if (!chatId || !currentChat) return;
+  const handleSendMessage = async (message: string, attachments?: File[]) => {
+    if (!selectedAssistant) {
+      console.error("No assistant selected");
+      return;
+    }
 
-      try {
-        setIsLoadingMessages(true);
-        setMessagesError(null);
+    // Send message to existing chat
+    if (!currentChat) {
+      console.error("No current chat selected");
+      return;
+    }
 
-        const response = await fetch(`/api/chats/${chatId}/messages`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch messages");
-        }
-
-        const fetchedMessages: Message[] = await response.json();
-        setMessages(fetchedMessages);
-      } catch (error) {
-        console.error("Error fetching messages:", error);
-        setMessagesError(
-          error instanceof Error ? error.message : "Failed to load messages"
-        );
-      } finally {
-        setIsLoadingMessages(false);
-      }
+    // Optimistically add user message to the UI
+    const optimisticUserMessage = {
+      id: `temp-${Date.now()}`,
+      chat_id: currentChat.id,
+      role: "user" as const,
+      content: message,
+      created_at: new Date().toISOString(),
     };
+    setMessages([...messages, optimisticUserMessage]);
+    setIsSendingMessage(true);
 
-    fetchMessages();
-  }, [chatId, currentChat, setMessages, setIsLoadingMessages]);
+    try {
+      const response = await fetch(`/api/chats/${currentChat.id}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: message,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send message");
+      }
+
+      const { userMessage, assistantMessage } = (await response.json()) as {
+        userMessage: Message;
+        assistantMessage: Message;
+      };
+
+      // Replace optimistic message with the real one and add assistant's message
+      const newMessages = [
+        ...messages.filter((m) => m.id !== optimisticUserMessage.id),
+        userMessage,
+        assistantMessage,
+      ];
+      setMessages(newMessages);
+
+      // Refresh the sidebar to update the chat's updated_at timestamp
+      refreshChats();
+
+      console.log("Message sent successfully");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      // TODO: Show error message to user
+    } finally {
+      setIsSendingMessage(false);
+    }
+
+    if (attachments && attachments.length > 0) {
+      console.log(
+        "Attachments:",
+        attachments.map((f) => f.name)
+      );
+    }
+  };
 
   if (isLoading) {
     return (
@@ -138,8 +208,28 @@ export default function ChatPage() {
         <MessageList
           messages={messages}
           assistantName={currentChat.assistants?.name || "Assistant"}
-          isLoading={isLoadingMessages || isSendingMessage}
+          isLoading={isSendingMessage}
           error={messagesError}
+        />
+      </div>
+      <div className="absolute bottom-0 w-full">
+        <MessageInput
+          onSendMessage={handleSendMessage}
+          disabled={
+            isLoading ||
+            isCreatingChat ||
+            isSendingMessage ||
+            !selectedAssistant
+          }
+          placeholder={
+            !selectedAssistant
+              ? "Select an assistant to start chatting..."
+              : isCreatingChat
+              ? "Creating chat..."
+              : isSendingMessage
+              ? "Sending message..."
+              : "Send a message..."
+          }
         />
       </div>
     </div>
