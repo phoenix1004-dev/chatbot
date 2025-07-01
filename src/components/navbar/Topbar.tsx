@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Dropdown, DropdownItem } from "../ui/Dropdown";
 import { LoadingSpinnerWithText } from "../ui/LoadingSpinner";
 import {
@@ -255,9 +255,11 @@ export const Topbar: React.FC = () => {
     currentChat,
   } = useChat();
   const router = useRouter();
+  const pathname = usePathname();
 
-  // Disable assistant selection when viewing an existing chat
-  const isAssistantSelectionDisabled = currentChat !== null;
+  // Disable assistant selection only when viewing an existing chat page
+  const isAssistantSelectionDisabled =
+    pathname.startsWith("/chat/") && currentChat !== null;
 
   // Fetch assistants on component mount
   useEffect(() => {
