@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Dropdown, DropdownItem } from "../ui/Dropdown";
 import { LoadingSpinnerWithText } from "../ui/LoadingSpinner";
 import {
@@ -121,7 +121,7 @@ const AssistantTypeDropdown: React.FC<AssistantTypeDropdownProps> = ({
       ) : // Show dropdown when not loading
       disabled ? (
         // Show non-interactive display when disabled
-        <div className="flex items-center gap-2 px-3 py-2 text-white rounded-lg border border-gray-300 dark:border-gray-600 opacity-75">
+        <div className="flex items-center gap-2 px-3 py-2 text-white rounded-lg border border-gray-300 dark:border-gray-600 opacity-75 cursor-not-allowed">
           <HiCpuChip size={16} />
           <span className="text-sm">
             {selectedAssistant?.name || "No Assistant"}
@@ -255,9 +255,11 @@ export const Topbar: React.FC = () => {
     currentChat,
   } = useChat();
   const router = useRouter();
+  const pathname = usePathname();
 
-  // Disable assistant selection when viewing an existing chat
-  const isAssistantSelectionDisabled = currentChat !== null;
+  // Disable assistant selection only when viewing an existing chat page
+  const isAssistantSelectionDisabled =
+    pathname.startsWith("/chat/") && currentChat !== null;
 
   // Fetch assistants on component mount
   useEffect(() => {
